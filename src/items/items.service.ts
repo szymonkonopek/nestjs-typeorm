@@ -44,7 +44,7 @@ export class ItemsService {
 
   async findAll() {
     return this.itemsRepository.find({
-      relations: ['comments'],
+      relations: ['comments', 'tags'],
     });
   }
 
@@ -74,6 +74,34 @@ export class ItemsService {
     item.comments = comments;
 
     return this.itemsRepository.save(item);
+  }
+
+  async update_transaction(id: number, updateItemDto: UpdateItemDto) {
+    await this.entityManager.transaction(async (entityManager) => {
+      const item = await this.itemsRepository.findOneBy({ id });
+      if (!item) {
+        throw new Error(`Item with id ${id} not found`);
+      }
+
+      item.public = updateItemDto.public;
+
+      const comments = updateItemDto.comments.map((createCommentDto) => {
+        console.log('createCommentDto:', createCommentDto);
+        return entityManager.create(Comment, {
+          ...createCommentDto,
+        });
+      });
+
+      item.comments = comments;
+
+      await this.itemsRepository.save(item);
+
+      const tagContent = `${Math.random()}`;
+      const tag = entityManager.create(Tag, {
+        content: tagContent,
+      });
+      await entityManager.save(tag);
+    });
   }
 
   async remove(id: number) {
